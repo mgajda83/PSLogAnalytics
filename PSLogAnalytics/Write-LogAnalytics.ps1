@@ -1,9 +1,43 @@
 Function Write-LogAnalytics
 {
-    [CmdletBinding(
-		SupportsShouldProcess=$True,
-		ConfirmImpact="Low"
-	)]
+<#
+	.SYNOPSIS
+	    Write object to LogAnalytics workspace.
+
+	.PARAMETER WorkspaceID
+	    WorkspaceID of LogAnalytics workspace.
+
+	.PARAMETER SharedKey
+	    SharedKey of LogAnalytics workspace.
+
+	.PARAMETER Object
+	    PowerShell object to write to LogAnalytics workspace
+
+	.PARAMETER Table
+	    Custom table name in LogAnalytics workspace.
+
+	.EXAMPLE
+		$WorkspaceID = "<GUID WorkspaceID>"
+        $SharedKey = "<SharedKey>"
+        $Object = [PSCustomObject]@{
+            Requester    = $env:USERNAME
+            ComputerName = $env:COMPUTERNAME
+            Id           = (New-Guid).Guid
+            Message      = "Custom Message"
+        }
+
+        $Log = @{
+            WorkspaceID = $WorkspaceID
+            SharedKey = $SharedKey
+            Object = $Object
+            Table = "CustomLog"
+        }
+        Write-LogAnalytics @Log
+
+	.NOTES
+		Author: Michal Gajda
+	#>
+    [CmdletBinding()]
     Param
     (
         [Parameter(Mandatory=$true)]
@@ -12,15 +46,15 @@ Function Write-LogAnalytics
         [String]$SharedKey,
         [Parameter(Mandatory=$true,
             ValueFromPipeline=$True)]
-        [PSObject]$Content,
-        [String]$LogType = "CustomLog"
+        [PSObject]$Object,
+        [String]$Table = "CustomLog"
     )
 
     Begin {}
 
     Process
     {
-        $Body = $Content | ConvertTo-Json
+        $Body = $Object | ConvertTo-Json
 
         #Sign params
         $Method = "POST"
@@ -44,7 +78,7 @@ Function Write-LogAnalytics
         $Uri = "https://" + $WorkspaceID + ".ods.opinsights.azure.com" + $APIResource + "?api-version=2016-04-01"
         $Headers = @{
             "Authorization" = $Authorization
-            "Log-Type" = $LogType
+            "Log-Type" = $Table
             "x-ms-date" = $SignDate
             "time-generated-field" = $(Get-Date)
         }
@@ -61,7 +95,7 @@ Function Write-LogAnalytics
         #Send request
         $Response = Invoke-WebRequest @Request
 
-        if ($Response.StatusCode -eq 200) 
+        if ($Response.StatusCode -eq 200)
         {
             Write-Information -MessageData "Event was write to Log Analytics Workspace" -InformationAction Continue
         }
